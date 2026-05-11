@@ -16,6 +16,7 @@
 // ============================================================================
 
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -33,12 +34,14 @@ void main() async {
   //                     better peer discovery on public magnets.
   // • pollInterval    — how often the engine emits status updates
   //                     (lower = more responsive UI, higher = less CPU).
+  final appDocDir = await getApplicationDocumentsDirectory();
+  final defaultPath = '${appDocDir.path}/downloads';
   await LibtorrentFlutter.init(
-    defaultSavePath:
-        '${Directory.current.path}${Platform.pathSeparator}downloads',
+    defaultSavePath: defaultPath,
     fetchTrackers: true,
     pollInterval: const Duration(milliseconds: 200),
   );
+  print(defaultPath);
 
   runApp(const LibtorrentExampleApp());
 }
@@ -227,11 +230,9 @@ class _HomePageState extends State<HomePage> {
                     // Force encryption toggle.
                     SwitchListTile(
                       title: const Text('Force encryption'),
-                      subtitle:
-                          const Text('Only connect to encrypted peers'),
+                      subtitle: const Text('Only connect to encrypted peers'),
                       value: forceEncrypt,
-                      onChanged: (v) =>
-                          setDialogState(() => forceEncrypt = v),
+                      onChanged: (v) => setDialogState(() => forceEncrypt = v),
                     ),
 
                     // DHT toggle.
@@ -240,8 +241,7 @@ class _HomePageState extends State<HomePage> {
                       subtitle: const Text(
                           'Turn off distributed hash table discovery'),
                       value: disableDht,
-                      onChanged: (v) =>
-                          setDialogState(() => disableDht = v),
+                      onChanged: (v) => setDialogState(() => disableDht = v),
                     ),
 
                     // Per-torrent connections limit.
@@ -259,8 +259,7 @@ class _HomePageState extends State<HomePage> {
                       divisions: 39,
                       value: connLimit.clamp(5, 200),
                       label: connLimit.toInt().toString(),
-                      onChanged: (v) =>
-                          setDialogState(() => connLimit = v),
+                      onChanged: (v) => setDialogState(() => connLimit = v),
                     ),
                   ],
                 ),
@@ -274,10 +273,8 @@ class _HomePageState extends State<HomePage> {
                   onPressed: () {
                     // Apply the new config to the running session.
                     _engine.configureSession(config.copyWith(
-                      downloadRateLimit:
-                          int.tryParse(dlLimitCtrl.text) ?? 0,
-                      uploadRateLimit:
-                          int.tryParse(ulLimitCtrl.text) ?? 0,
+                      downloadRateLimit: int.tryParse(dlLimitCtrl.text) ?? 0,
+                      uploadRateLimit: int.tryParse(ulLimitCtrl.text) ?? 0,
                       forceEncrypt: forceEncrypt,
                       disableDht: disableDht,
                       connectionsLimit: connLimit.toInt(),

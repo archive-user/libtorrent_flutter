@@ -56,47 +56,47 @@ class TrackerManager {
 // ─── Status converters ──────────────────────────────────────────────────────
 
 TorrentInfo _toTorrentInfo(LtTorrentStatus s) => TorrentInfo(
-  id:            s.id,
-  name:          readCharArray(s.name, 512),
-  savePath:      readCharArray(s.savePath, 1024),
-  errorMsg:      readCharArray(s.errorMsg, 256),
-  state:         stateFromInt(s.state),
-  progress:      s.progress.clamp(0.0, 1.0),
-  downloadRate:  s.downloadRate,
-  uploadRate:    s.uploadRate,
-  totalDone:     s.totalDone,
-  totalWanted:   s.totalWanted,
-  totalUploaded: s.totalUploaded,
-  numPeers:      s.numPeers,
-  numSeeds:      s.numSeeds,
-  isPaused:      s.isPaused != 0,
-  isFinished:    s.isFinished != 0,
-  hasMetadata:   s.hasMetadata != 0,
-  queuePosition: s.queuePosition,
-);
+      id: s.id,
+      name: readCharArray(s.name, 512),
+      savePath: readCharArray(s.savePath, 1024),
+      errorMsg: readCharArray(s.errorMsg, 256),
+      state: stateFromInt(s.state),
+      progress: s.progress.clamp(0.0, 1.0),
+      downloadRate: s.downloadRate,
+      uploadRate: s.uploadRate,
+      totalDone: s.totalDone,
+      totalWanted: s.totalWanted,
+      totalUploaded: s.totalUploaded,
+      numPeers: s.numPeers,
+      numSeeds: s.numSeeds,
+      isPaused: s.isPaused != 0,
+      isFinished: s.isFinished != 0,
+      hasMetadata: s.hasMetadata != 0,
+      queuePosition: s.queuePosition,
+    );
 
 FileInfo _toFileInfo(LtFileInfo f) => FileInfo(
-  index:        f.index,
-  name:         readCharArray(f.name, 512),
-  path:         readCharArray(f.path, 1024),
-  size:         f.size,
-  isStreamable: f.isStreamable != 0,
-);
+      index: f.index,
+      name: readCharArray(f.name, 512),
+      path: readCharArray(f.path, 1024),
+      size: f.size,
+      isStreamable: f.isStreamable != 0,
+    );
 
 StreamInfo _toStreamInfo(LtStreamStatus s) => StreamInfo(
-  id:              s.id,
-  torrentId:       s.torrentId,
-  fileIndex:       s.fileIndex,
-  url:             readCharArray(s.url, 256),
-  fileSize:        s.fileSize,
-  readHead:        s.readHead,
-  streamState:     streamStateFromInt(s.streamState),
-  bufferSeconds:   s.bufferSeconds,
-  bufferPieces:    s.bufferPieces,
-  readaheadWindow: s.readaheadWindow,
-  activePeers:     s.activePeers,
-  downloadRate:    s.downloadRate,
-);
+      id: s.id,
+      torrentId: s.torrentId,
+      fileIndex: s.fileIndex,
+      url: readCharArray(s.url, 256),
+      fileSize: s.fileSize,
+      readHead: s.readHead,
+      streamState: streamStateFromInt(s.streamState),
+      bufferSeconds: s.bufferSeconds,
+      bufferPieces: s.bufferPieces,
+      readaheadWindow: s.readaheadWindow,
+      activePeers: s.activePeers,
+      downloadRate: s.downloadRate,
+    );
 
 // ─── LibtorrentFlutter ──────────────────────────────────────────────────────
 
@@ -126,13 +126,17 @@ class LibtorrentFlutter {
   final Map<int, StreamInfo> _streams = {};
 
   static const _maxTorrents = 1024;
-  static const _maxStreams  = 64;
+  static const _maxStreams = 64;
+
+  // Native callback storage
+  static NativeCallable<LtAlertCallbackNative>? _alertCallback;
 
   LibtorrentFlutter._();
 
   /// The singleton instance. Only available after [init] completes.
   static LibtorrentFlutter get instance {
-    if (_instance == null) throw StateError('LibtorrentFlutter.init() not called');
+    if (_instance == null)
+      throw StateError('LibtorrentFlutter.init() not called');
     return _instance!;
   }
 
@@ -167,7 +171,8 @@ class LibtorrentFlutter {
 
     final iface = listenInterface.toNativeUtf8();
     try {
-      final session = engine._b.createSession(iface, downloadLimit, uploadLimit);
+      final session =
+          engine._b.createSession(iface, downloadLimit, uploadLimit);
       if (session == nullptr) {
         final err = engine._b.lastError().toDartString();
         throw StateError('Failed to create libtorrent session: $err');
@@ -214,12 +219,14 @@ class LibtorrentFlutter {
       if (id < 0) throw Exception(_b.lastError().toDartString());
       return id;
     } finally {
-      malloc.free(m); malloc.free(s);
+      malloc.free(m);
+      malloc.free(s);
     }
   }
 
   /// Add a torrent from a .torrent file path.
-  int addTorrentFile(String filePath, [String? savePath, bool streamOnly = false]) {
+  int addTorrentFile(String filePath,
+      [String? savePath, bool streamOnly = false]) {
     final f = filePath.toNativeUtf8();
     final s = (savePath ?? _defaultSavePath).toNativeUtf8();
     try {
@@ -227,7 +234,8 @@ class LibtorrentFlutter {
       if (id < 0) throw Exception(_b.lastError().toDartString());
       return id;
     } finally {
-      malloc.free(f); malloc.free(s);
+      malloc.free(f);
+      malloc.free(s);
     }
   }
 
@@ -283,8 +291,10 @@ class LibtorrentFlutter {
   /// Returns [StreamInfo] with an HTTP URL that can be passed to any video player.
   /// [fileIndex] = -1 auto-selects the largest streamable file.
   /// [maxCacheBytes] controls how much RAM the piece cache uses (0 = default ~128MB).
-  StreamInfo startStream(int torrentId, {int fileIndex = -1, int maxCacheBytes = 0}) {
-    final streamId = _b.startStream(_session, torrentId, fileIndex, maxCacheBytes);
+  StreamInfo startStream(int torrentId,
+      {int fileIndex = -1, int maxCacheBytes = 0}) {
+    final streamId =
+        _b.startStream(_session, torrentId, fileIndex, maxCacheBytes);
     if (streamId < 0) {
       throw Exception('startStream failed: ${_b.lastError().toDartString()}');
     }
@@ -339,12 +349,14 @@ class LibtorrentFlutter {
   /// - [capacity] — cache size in bytes (default 64MB).
   /// - [readAheadPct] — percentage 5-100 of cache used for read-ahead (default 95%).
   /// - [connectionsLimit] — max concurrent piece requests per reader (default 25).
-  void setCacheSettings(int streamId, {
+  void setCacheSettings(
+    int streamId, {
     int capacity = 0,
     int readAheadPct = 0,
     int connectionsLimit = 0,
   }) {
-    _b.setCacheSettings(_session, streamId, capacity, readAheadPct, connectionsLimit);
+    _b.setCacheSettings(
+        _session, streamId, capacity, readAheadPct, connectionsLimit);
   }
 
   // ─── Speed Limits ─────────────────────────────────────────────────────────
@@ -434,24 +446,45 @@ class LibtorrentFlutter {
   }
 
   void _pollAlerts() {
-    final callback = NativeCallable<LtAlertCallbackNative>.isolateLocal(_onAlert);
+    // 如果不想处理 alerts，可以直接返回
+    // 或者使用 nullptr 跳过回调
+    _ensureAlertCallback();
     try {
-      _b.pollAlerts(_session, callback.nativeFunction, nullptr);
-    } finally {
-      callback.close();
+      // 使用 Pointer.fromAddress(0) 替代 nullptr
+      _b.pollAlerts(
+          _session, _alertCallback!.nativeFunction, Pointer.fromAddress(0));
+    } catch (e) {
+      // 静默处理错误，alert 轮询不是必需的
+      // 主要状态已经通过 _pollTorrents 和 _pollStreams 更新
     }
   }
 
-  static void _onAlert(int type, int torrentId, Pointer<Utf8> message, Pointer<Void> userData) {
-    // Silently consume alerts — users can listen to torrentUpdates for state changes.
-    // Uncomment for debugging:
+  void _ensureAlertCallback() {
+    if (_alertCallback == null && _instance != null) {
+      _alertCallback =
+          NativeCallable<LtAlertCallbackNative>.isolateLocal(_onAlertStatic);
+    }
+  }
+
+  static void _onAlertStatic(
+      int type, int torrentId, Pointer<Utf8> message, Pointer<Void> userData) {
+    // 尝试转发给实例方法（如果有实例）
+    if (_instance != null) {
+      _instance!._onAlert(type, torrentId, message, userData);
+    }
+  }
+
+  void _onAlert(
+      int type, int torrentId, Pointer<Utf8> message, Pointer<Void> userData) {
+    // 静默处理 alerts
+    // 取消注释下面的代码可以查看调试信息
     // final msg = message.toDartString();
-    // print('LibtorrentFlutter Alert: [T$torrentId] $msg');
+    // print('LibtorrentFlutter Alert: [T$torrentId] type=$type, msg=$msg');
   }
 
   void _pollTorrents() {
     final count = _b.getTorrentCount(_session);
-    final buf   = calloc<LtTorrentStatus>(max(count, _maxTorrents));
+    final buf = calloc<LtTorrentStatus>(max(count, _maxTorrents));
     try {
       final n = _b.getAllStatuses(_session, buf, max(count, _maxTorrents));
       bool changed = false;
@@ -472,7 +505,9 @@ class LibtorrentFlutter {
         changed = true;
       }
       if (changed) _torrentsCtrl.add(Map.unmodifiable(_torrents));
-    } finally { calloc.free(buf); }
+    } finally {
+      calloc.free(buf);
+    }
   }
 
   void _pollStreams() {
@@ -483,11 +518,11 @@ class LibtorrentFlutter {
       bool changed = false;
       for (var i = 0; i < n; i++) {
         final info = _toStreamInfo(buf[i]);
-        final old  = _streams[info.id];
+        final old = _streams[info.id];
         if (old == null ||
             old.streamState != info.streamState ||
             old.bufferPieces != info.bufferPieces ||
-            old.readHead    != info.readHead ||
+            old.readHead != info.readHead ||
             old.activePeers != info.activePeers) {
           _streams[info.id] = info;
           changed = true;
@@ -498,19 +533,21 @@ class LibtorrentFlutter {
         }
       }
       if (changed) _streamsCtrl.add(Map.unmodifiable(_streams));
-    } finally { calloc.free(buf); }
+    } finally {
+      calloc.free(buf);
+    }
   }
 
   bool _changed(TorrentInfo a, TorrentInfo b) =>
-      a.state       != b.state       ||
-      a.progress    != b.progress    ||
-      a.downloadRate!= b.downloadRate||
-      a.uploadRate  != b.uploadRate  ||
-      a.totalDone   != b.totalDone   ||
-      a.numPeers    != b.numPeers    ||
-      a.isPaused    != b.isPaused    ||
+      a.state != b.state ||
+      a.progress != b.progress ||
+      a.downloadRate != b.downloadRate ||
+      a.uploadRate != b.uploadRate ||
+      a.totalDone != b.totalDone ||
+      a.numPeers != b.numPeers ||
+      a.isPaused != b.isPaused ||
       a.hasMetadata != b.hasMetadata ||
-      a.name        != b.name;
+      a.name != b.name;
 
   // ─── Cleanup ───────────────────────────────────────────────────────────────
 
@@ -534,12 +571,16 @@ class LibtorrentFlutter {
   void disposeAll() {
     // Stop all streams first
     for (final sid in _streams.keys.toList()) {
-      try { stopStream(sid); } catch (_) {}
+      try {
+        stopStream(sid);
+      } catch (_) {}
     }
 
     // Remove all torrents and delete their files
     for (final tid in _torrents.keys.toList()) {
-      try { removeTorrent(tid, deleteFiles: true); } catch (_) {}
+      try {
+        removeTorrent(tid, deleteFiles: true);
+      } catch (_) {}
     }
   }
 
@@ -549,6 +590,13 @@ class LibtorrentFlutter {
   Future<void> dispose() async {
     disposeAll();
     _pollTimer?.cancel();
+
+    // 清理 NativeCallable
+    if (_alertCallback != null) {
+      _alertCallback!.close();
+      _alertCallback = null;
+    }
+
     _b.destroySession(_session);
     await _torrentsCtrl.close();
     await _streamsCtrl.close();
